@@ -8,19 +8,8 @@
 #define LANE_USE_KALMAN 1
 
 /// 高速路
-#define SRC "file:///media/TOURO/PAPAGO/94750223/16290029.MOV"
-int roiX = 195 * 2;
-int roiY = 258 * 2;
-int roiWidth = 384 * 2;
-int roiHeight = 99 * 2;
-int srcX1 = 161 * 2;
-int KFStateL = 335;
-int KFStateR = 450;
-
-
 /*
-/// 城西路
-#define SRC "file:///media/TOURO/PAPAGO/94750223/17050041.MOV"
+#define SRC "file:///media/TOURO/PAPAGO/94750223/16290029.MOV"
 int roiX = 195 * 2;
 int roiY = 258 * 2;
 int roiWidth = 384 * 2;
@@ -31,8 +20,21 @@ int KFStateR = 450;
 */
 
 
-/*
+/// 城西路
+#define SRC "file:///media/TOURO/PAPAGO/94750223/17050041.MOV"
+int roiX = 195 * 2;
+int roiY = 258 * 2;
+int roiWidth = 384 * 2;
+int roiHeight = 99 * 2;
+int srcX1 = 161 * 2;
+int KFStateL = 335;
+int KFStateR = 450;
+
+
+
+
 /// 城北路
+/*
 #define SRC "file:///media/TOURO/PAPAGO/190CRASH/13510002.MOV"
 int roiX = 300;
 int roiY = 258 * 2;
@@ -449,6 +451,9 @@ vector<int> lanePF(Mat& _iInput) {
             e += iInput.ptr<T>(y)[x];
         }
         e /= 255.0;
+        if (e > iInput.rows) {
+            e = 0;
+        }
         
         p = exp(-0.1 * (iInput.rows - e));
         con->flConfidence[i] = p;
@@ -490,11 +495,6 @@ void detectLane(Mat imgInput) {
     /// ROI 图
     imgROI = Mat(imgOrigin, roiLane);
     
-    // 在 ROI 图上绘制 srcX1 和 src 坐标
-    line(imgROI, Point(srcX1, 1), Point(srcX1, roiHeight), CV_RGB(0, 255, 0));
-    line(imgROI, Point(roiWidth - srcX1, 1), Point(roiWidth - srcX1, roiHeight), CV_RGB(0, 255, 0));
-    
-    //imshow(winROI, imgROI2);
     
     /// 灰度图
     cvtColor(imgROI, imgGray, CV_RGB2GRAY);
@@ -507,7 +507,17 @@ void detectLane(Mat imgInput) {
     
     warpPerspective(imgROI, imgIPM32, tsfIPM, imgROI.size());
     
+    cutRegion(&imgIPM32, Rect(0, 0, imgIPM32.cols, imgIPM32.rows), "/media/TOURO/raw");
+    return;
     
+    
+    // 在 ROI 图上绘制 srcX1 和 src 坐标
+    line(imgROI, Point(srcX1, 1), Point(srcX1, roiHeight), CV_RGB(0, 255, 0));
+    line(imgROI, Point(roiWidth - srcX1, 1), Point(roiWidth - srcX1, roiHeight), CV_RGB(0, 255, 0));
+    
+    //imshow(winROI, imgROI2);
+
+
     /// 高斯模糊
     
     sepFilter2D(imgIPM, imgGaussian, imgIPM.depth(), gaussianKernelX, gaussianKernelY);
@@ -1213,6 +1223,15 @@ int main()
         }
         
         
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
         capVideo >> frame;
 
         if (frame.empty()) {
