@@ -1,2 +1,4 @@
 driveassist
 *.o
+
+/videos/*.MOV
