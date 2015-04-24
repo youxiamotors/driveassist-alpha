@@ -25,6 +25,7 @@ int KFStateR = 450;
 
 
 /// 城西路
+
 #define SRC "file:///media/TOURO/PAPAGO/94750223/17050041.MOV"
 int roiX = 195 * 2;
 int roiY = 258 * 2;
@@ -51,8 +52,11 @@ int roiHeight = 99 * 2;
 int srcX1 = 303;
 int KFStateL = 315;
 int KFStateR = 445;
+int roadmarkROIX = 315;
+int roadmarkROIY = 0;
+int roadmarkROIWidth = 128;
+int roadmarkROIHeight = 96;
 */
-
 
 //#define SRC "file:///media/TOURO/PAPAGO/95450225/17500006.MOV" /** 车辆 */
 
@@ -997,12 +1001,13 @@ void detectCar(Mat *imgInput, Rect _roi) {
 
 
 /**
- * 使用 IPM 进行标志检测
+ * 使用 IPM 进行标志检测（卷积神经网络）
+ * Detect roadmark on IPM with Convolutional Neural Netrowks
  */
 void detectRoadmarkCNN(Mat *imgInput) {
     const char *winDR2IPM = "Detect Roadmark CNN IPM";
-    const char *trained_file = "/media/TOURO/caffe/roadmark-test/snapshot_iter_10000.caffemodel";
-    const char *model_file = "/media/TOURO/caffe/roadmark-test/lenet_mem.prototxt";
+    const char *trained_file = "/media/TOURO/caffe/roadmark-test/mynet1_iter_5000.caffemodel";
+    const char *model_file = "/media/TOURO/caffe/roadmark-test/mynet1_mem.prototxt";
     
     Mat iROI, iGray, iIPM, iHist, iThres, iGauss;
     
@@ -1016,7 +1021,7 @@ void detectRoadmarkCNN(Mat *imgInput) {
     /// IPM 图
     warpPerspective(iROI, iIPM, tsfIPM, iROI.size());
     
-    rectangle(iIPM, Point(roi.x, roi.y), Point(roi.x + roi.width, roi.y + roi.height), CV_RGB(255, 255, 0));
+    rectangle(iIPM, Point(roi.x, roi.y), Point(roi.x + roi.width, roi.y + roi.height), CV_RGB(128, 128, 255));
     
     
     roi.x = max(roi.x, 0);
@@ -1032,7 +1037,9 @@ void detectRoadmarkCNN(Mat *imgInput) {
         return;
     }
     
-    cutRegion(&iIPM, roi, "/media/TOURO/neg");
+    /// 将图片截取出来，用作训练
+    /// Cut ROI for CNN training
+    //cutRegion(&iIPM, roi, "/media/TOURO/neg");
     
     
     /// 使用 CNN 进行识别
@@ -1053,7 +1060,7 @@ void detectRoadmarkCNN(Mat *imgInput) {
     }
     
     Mat iCNN;
-    resize(Mat(iIPM, roi), iCNN, cv::Size(128, 96));
+    resize(Mat(iIPM, roi), iCNN, cv::Size(64, 48));
     
     vector<Mat> images(1, iCNN);
     vector<int> labels(1, 0);
@@ -1077,10 +1084,22 @@ void detectRoadmarkCNN(Mat *imgInput) {
     char txt[1024] = {0};
     snprintf(txt, sizeof(txt) - 1, "Label: %d, Val: %0.4f", maxidx, maxval);
     putText(iIPM, String(txt), Point(0, 20), FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(0, 0, 255));
-    imshow(winDR2IPM, iIPM);
+    
 
     
     fprintf(stderr, "路标探测：探测到的最大标签是%d, 最大值是 %0.4f\n", maxidx, maxval);
+    
+    if (maxidx > 0) {
+        rectangle(iIPM, Point(roi.x, roi.y), Point(roi.x + roi.width, roi.y + roi.height), CV_RGB(255, 255, 0));
+        
+        cutRegion(&iIPM, roi, "/media/TOURO/neg/1");
+    }
+    else {
+        cutRegion(&iIPM, roi, "/media/TOURO/neg/0");
+    }
+    
+    
+    imshow(winDR2IPM, iIPM);
 }
 
 /**
@@ -1258,6 +1277,14 @@ int main()
         }
         
         
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
+        capVideo >> frame;
         capVideo >> frame;
 
         if (frame.empty()) {
