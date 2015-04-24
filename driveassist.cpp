@@ -25,7 +25,7 @@ int KFStateR = 450;
 
 
 /// 城西路
-
+/*
 #define SRC "file:///media/TOURO/PAPAGO/94750223/17050041.MOV"
 int roiX = 195 * 2;
 int roiY = 258 * 2;
@@ -38,12 +38,12 @@ int roadmarkROIX = 345;
 int roadmarkROIY = 0;
 int roadmarkROIWidth = 128;
 int roadmarkROIHeight = 96;
-
+*/
 
 
 
 /// 城北路
-/*
+
 #define SRC "file:///media/TOURO/PAPAGO/190CRASH/13510002.MOV"
 int roiX = 300;
 int roiY = 258 * 2;
@@ -56,7 +56,7 @@ int roadmarkROIX = 315;
 int roadmarkROIY = 0;
 int roadmarkROIWidth = 128;
 int roadmarkROIHeight = 96;
-*/
+
 
 //#define SRC "file:///media/TOURO/PAPAGO/95450225/17500006.MOV" /** 车辆 */
 
@@ -1004,19 +1004,27 @@ void detectCar(Mat *imgInput, Rect _roi) {
  * 使用 IPM 进行标志检测（卷积神经网络）
  * Detect roadmark on IPM with Convolutional Neural Netrowks
  */
-void detectRoadmarkCNN(Mat *imgInput) {
-    const char *winDR2IPM = "Detect Roadmark CNN IPM";
-    const char *trained_file = "/media/TOURO/caffe/roadmark-test/mynet1_iter_5000.caffemodel";
-    const char *model_file = "/media/TOURO/caffe/roadmark-test/mynet1_mem.prototxt";
-    
+void detectRoadmarkCascade(Mat *imgInput) {
+    const char *winDR2IPM = "Detect Roadmark Cascade IPM";
+    const char *model = "/media/TOURO/opencv/roadmark3/cascade-43-90-haar/cascade.xml";
     Mat iROI, iGray, iIPM, iHist, iThres, iGauss;
+    int ret;
+    
+    static CascadeClassifier _cascade;
+    static CascadeClassifier* cascade = NULL;
     
     iROI = Mat(*imgInput, roiLane);
-    
     Rect roi = roiRoadmark;
     
-    cout<<roi<<endl;
-    
+    if (cascade == NULL) {
+        cascade = &_cascade;
+        ret = cascade->load(model);
+        if (!ret) {
+            fprintf(stderr, "Could not load cascade file `%s'\n", model);
+            exit(-1);
+        }
+    }
+        
 
     /// IPM 图
     warpPerspective(iROI, iIPM, tsfIPM, iROI.size());
@@ -1037,67 +1045,31 @@ void detectRoadmarkCNN(Mat *imgInput) {
         return;
     }
     
+    
     /// 将图片截取出来，用作训练
     /// Cut ROI for CNN training
-    //cutRegion(&iIPM, roi, "/media/TOURO/neg");
+    ///cutRegion(&iIPM, roi, "/media/TOURO/neg");
     
+    vector<Rect> objs;
+    cascade->detectMultiScale(Mat(iIPM, roi), objs, 1.1, 30, 0 | CASCADE_SCALE_IMAGE);
     
-    /// 使用 CNN 进行识别
-    Net<float> _cnn(model_file, caffe::TEST);
-    Net<float> *cnn = NULL;
-    
-    if (cnn == NULL) {
-        fprintf(stderr, "初始化卷积神经网络\n");
-        
-        cnn = &_cnn;
-        cnn->CopyTrainedLayersFrom(trained_file);
+    if (objs.size() > 0) {
+        rectangle(iIPM, Point(roi.x, roi.y), Point(roi.x + roi.width, roi.y + roi.height), CV_RGB(255, 255, 0));
+        fprintf(stderr, "检测到 %lu 个路面标志\n", objs.size());
+    }
+    else {
     }
     
-    shared_ptr<MemoryDataLayer<float> > md_layer = boost::dynamic_pointer_cast <MemoryDataLayer<float> >(cnn->layers()[0]);
-    if (!md_layer) {
-        fprintf(stderr, "(Caffe)卷积神经网络的第一层不是内存数据层\n");
-        exit(-1);
-    }
-    
-    Mat iCNN;
-    resize(Mat(iIPM, roi), iCNN, cv::Size(64, 48));
-    
-    vector<Mat> images(1, iCNN);
-    vector<int> labels(1, 0);
-    float loss;
-    
-    
-    md_layer->AddMatVector(images, labels);
-    cnn->ForwardPrefilled(&loss);
-    
-    shared_ptr<Blob<float> > prob = cnn->blob_by_name("prob");
-    float maxval = 0;
-    int maxidx = 0;
-    for (int i = 0; i < prob->count(); i++) {
-        float val = prob->cpu_data()[i];
-        if (val > maxval) {
-            maxval = val;
-            maxidx = i;
-        }
+    for (unsigned int i = 0; i < objs.size(); i++) {
+        objs[i].x += roi.x;
+        objs[i].y += roi.y;
+        rectangle(iIPM, Point(objs[i].x, objs[i].y), Point(objs[i].x + objs[i].width, objs[i].y + objs[i].height), CV_RGB(255, 0, 0));
     }
     
     char txt[1024] = {0};
-    snprintf(txt, sizeof(txt) - 1, "Label: %d, Val: %0.4f", maxidx, maxval);
+    snprintf(txt, sizeof(txt) - 1, "Detected Objs: %lu", objs.size());
     putText(iIPM, String(txt), Point(0, 20), FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(0, 0, 255));
-    
-
-    
-    fprintf(stderr, "路标探测：探测到的最大标签是%d, 最大值是 %0.4f\n", maxidx, maxval);
-    
-    if (maxidx > 0) {
-        rectangle(iIPM, Point(roi.x, roi.y), Point(roi.x + roi.width, roi.y + roi.height), CV_RGB(255, 255, 0));
         
-        cutRegion(&iIPM, roi, "/media/TOURO/neg/1");
-    }
-    else {
-        cutRegion(&iIPM, roi, "/media/TOURO/neg/0");
-    }
-    
     
     imshow(winDR2IPM, iIPM);
 }
@@ -1278,14 +1250,7 @@ int main()
         
         
         capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
+
 
         if (frame.empty()) {
             break;
@@ -1309,7 +1274,7 @@ int main()
         
         //detectRoadmark2(&imgClone);
         
-        detectRoadmarkCNN(&imgClone);
+        detectRoadmarkCascade(&imgClone);
         
         //cutRegion(&imgClone, roiRoadmark, "/media/TOURO/cutroi");  /// 暂时使用 roadmark 的 ROI 区域
         
