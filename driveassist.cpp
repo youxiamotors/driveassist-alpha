@@ -1006,7 +1006,7 @@ void detectCar(Mat *imgInput, Rect _roi) {
  */
 void detectRoadmarkCNN(Mat *imgInput) {
     const char *winDR2IPM = "Detect Roadmark CNN IPM";
-    const char *trained_file = "/media/TOURO/caffe/roadmark-test/mynet1_iter_5000.caffemodel";
+    const char *trained_file = "/media/TOURO/caffe/roadmark-test/mynet1_iter_35000.caffemodel";
     const char *model_file = "/media/TOURO/caffe/roadmark-test/mynet1_mem.prototxt";
     
     Mat iROI, iGray, iIPM, iHist, iThres, iGauss;
@@ -1093,6 +1093,25 @@ void detectRoadmarkCNN(Mat *imgInput) {
         rectangle(iIPM, Point(roi.x, roi.y), Point(roi.x + roi.width, roi.y + roi.height), CV_RGB(255, 255, 0));
         
         cutRegion(&iIPM, roi, "/media/TOURO/neg/1");
+        
+        
+        /// 在 imgOrigin 上绘制探测到的路标界限
+        vector<Point2f> ps, psIn;
+        psIn.push_back(Point(roi.x, roi.y));
+        psIn.push_back(Point(roi.x + roi.width, roi.y));
+        psIn.push_back(Point(roi.x + roi.width, roi.y + roi.height));
+        psIn.push_back(Point(roi.x, roi.y + roi.height));
+        
+        perspectiveTransform(psIn, ps, tsfIPMInv);
+        for (unsigned int i = 0; i < ps.size(); i++) {
+            ps[i].x += roiLane.x;
+            ps[i].y += roiLane.y;
+        }
+        
+        //line(imgOrigin, ps[0], ps[1], CV_RGB(255, 255, 0), 4);
+        rectangle(imgOrigin, Point(ps[3].x, ps[0].y), Point(ps[2].x, ps[2].y), CV_RGB(255, 255, 0), 2);        
+        putText(imgOrigin, "Roadmark Detected", ps[0], FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(0, 128, 0));
+        
     }
     else {
         cutRegion(&iIPM, roi, "/media/TOURO/neg/0");
