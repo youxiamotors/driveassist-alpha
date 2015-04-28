@@ -1111,12 +1111,14 @@ void detectRoadmarkCNN(Mat *imgInput) {
         //line(imgOrigin, ps[0], ps[1], CV_RGB(255, 255, 0), 4);
         rectangle(imgOrigin, Point(ps[3].x, ps[0].y), Point(ps[2].x, ps[2].y), CV_RGB(255, 255, 0), 2);        
         putText(imgOrigin, "Roadmark Detected", ps[0], FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(0, 128, 0));
-        
     }
     else {
         cutRegion(&iIPM, roi, "/media/TOURO/neg/0");
     }
     
+    /// 在原图左上角绘制探测过程
+    Mat imgOverlap = Mat(imgOrigin, Rect(0, 0, iIPM.cols, iIPM.rows));
+    iIPM.copyTo(imgOverlap);
     
     imshow(winDR2IPM, iIPM);
 }
