@@ -1001,13 +1001,12 @@ void detectCar(Mat *imgInput, Rect _roi) {
 
 
 /**
- * 使用 IPM 进行标志检测（卷积神经网络）
- * Detect roadmark on IPM with Convolutional Neural Netrowks
+ * 使用 IPM 进行标志检测（特征匹配 FM）
+ * Detect roadmark on IPM with Feature Match (FM) method
  */
-void detectRoadmarkCNN(Mat *imgInput) {
+void detectRoadmarkFM(Mat *imgInput) {
     const char *winDR2IPM = "Detect Roadmark CNN IPM";
-    const char *trained_file = "/media/TOURO/caffe/roadmark-test/mynet1_iter_35000.caffemodel";
-    const char *model_file = "/media/TOURO/caffe/roadmark-test/mynet1_mem.prototxt";
+    char txt[1024] = {0};
     
     Mat iROI, iGray, iIPM, iHist, iThres, iGauss;
     
@@ -1042,79 +1041,86 @@ void detectRoadmarkCNN(Mat *imgInput) {
     //cutRegion(&iIPM, roi, "/media/TOURO/neg");
     
     
-    /// 使用 CNN 进行识别
-    Net<float> _cnn(model_file, caffe::TEST);
-    Net<float> *cnn = NULL;
+    /// 角点探测
+    Mat iRROI = Mat(iIPM, roiRoadmark);
+    vector<cv::KeyPoint> keypoints;
     
-    if (cnn == NULL) {
-        fprintf(stderr, "初始化卷积神经网络\n");
+    FastFeatureDetector fast(40,true);
+    fast.detect(iRROI, keypoints);
+    
+    drawKeypoints(iRROI, keypoints, iRROI, cv::Scalar::all(255), DrawMatchesFlags::DRAW_OVER_OUTIMG);
+    
+    
+    snprintf(txt, sizeof(txt) - 1, "Detected Keyppoint Num: %lu", keypoints.size());
+    putText(iIPM, String(txt), Point(0, 20), FONT_HERSHEY_SIMPLEX, 0.7, Scalar::all(255));
+    
+    
+    /**
+     * 绘制一个标准化的特征：
+     *  1. 针对所有点，取点的平均坐标，作为中心坐标。
+     *  2. 计算所有点到中心坐标的距离，取计算结果的中位数作为单位距离
+     *  3. 用单位距离标准化所有点到中心的坐标
+     *  4. 绘制标准化后的特征
+     */
+    if (keypoints.size() > 0) {
+        Point2f pmean;
+        Point2f psum = Point2f(0, 0);
+        float mdist;    /// 距离中位数
+        vector<float> dist, dist_tmp;
         
-        cnn = &_cnn;
-        cnn->CopyTrainedLayersFrom(trained_file);
-    }
-    
-    shared_ptr<MemoryDataLayer<float> > md_layer = boost::dynamic_pointer_cast <MemoryDataLayer<float> >(cnn->layers()[0]);
-    if (!md_layer) {
-        fprintf(stderr, "(Caffe)卷积神经网络的第一层不是内存数据层\n");
-        exit(-1);
-    }
-    
-    Mat iCNN;
-    resize(Mat(iIPM, roi), iCNN, cv::Size(64, 48));
-    
-    vector<Mat> images(1, iCNN);
-    vector<int> labels(1, 0);
-    float loss;
-    
-    
-    md_layer->AddMatVector(images, labels);
-    cnn->ForwardPrefilled(&loss);
-    
-    shared_ptr<Blob<float> > prob = cnn->blob_by_name("prob");
-    float maxval = 0;
-    int maxidx = 0;
-    for (int i = 0; i < prob->count(); i++) {
-        float val = prob->cpu_data()[i];
-        if (val > maxval) {
-            maxval = val;
-            maxidx = i;
+        for (unsigned int i = 0; i < keypoints.size(); i++) {
+            psum.x += keypoints[i].pt.x;
+            psum.y += keypoints[i].pt.y;
         }
-    }
-    
-    char txt[1024] = {0};
-    snprintf(txt, sizeof(txt) - 1, "Label: %d, Val: %0.4f", maxidx, maxval);
-    putText(iIPM, String(txt), Point(0, 20), FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(0, 0, 255));
-    
-
-    
-    fprintf(stderr, "路标探测：探测到的最大标签是%d, 最大值是 %0.4f\n", maxidx, maxval);
-    
-    if (maxidx > 0) {
-        rectangle(iIPM, Point(roi.x, roi.y), Point(roi.x + roi.width, roi.y + roi.height), CV_RGB(255, 255, 0));
+        psum.x /= (1.0) * keypoints.size();
+        psum.y /= (1.0) * keypoints.size();
         
-        cutRegion(&iIPM, roi, "/media/TOURO/neg/1");
-        
-        
-        /// 在 imgOrigin 上绘制探测到的路标界限
-        vector<Point2f> ps, psIn;
-        psIn.push_back(Point(roi.x, roi.y));
-        psIn.push_back(Point(roi.x + roi.width, roi.y));
-        psIn.push_back(Point(roi.x + roi.width, roi.y + roi.height));
-        psIn.push_back(Point(roi.x, roi.y + roi.height));
-        
-        perspectiveTransform(psIn, ps, tsfIPMInv);
-        for (unsigned int i = 0; i < ps.size(); i++) {
-            ps[i].x += roiLane.x;
-            ps[i].y += roiLane.y;
+        for (unsigned int i = 0; i < keypoints.size(); i++) {
+            dist.push_back(sqrt(keypoints[i].pt.x * keypoints[i].pt.x + keypoints[i].pt.y * keypoints[i].pt.y));
         }
         
-        //line(imgOrigin, ps[0], ps[1], CV_RGB(255, 255, 0), 4);
-        rectangle(imgOrigin, Point(ps[3].x, ps[0].y), Point(ps[2].x, ps[2].y), CV_RGB(255, 255, 0), 2);        
-        putText(imgOrigin, "Roadmark Detected", ps[0], FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(0, 128, 0));
+        dist_tmp = dist;
+        sort(dist_tmp.begin(), dist_tmp.end());
+        mdist = dist_tmp[dist_tmp.size() / 2];
+        
+        
+        /// 魔法！因为联合排序太麻烦了，这里使用一个粗略的，但是对我们来说足够的算法来查找距离是中位数的点
+        /// 遍历所有点，计算其距离，如果其距离与距离中位数的差小于 1，则认为这个点是距离中位数点
+        for (unsigned int i = 0; i < dist.size(); i++) {
+            if (abs(dist[i] - mdist) < 1) {
+                pmean = keypoints[i].pt;
+                break;
+            }
+        }
+        
+        /// 在 pmean 处画一个圆，指示中位数特征点
+        circle(iRROI, pmean, 2, CV_RGB(255, 0, 0), 1);
+        
+        
+        /// 绘制标准化特征点
+        Point2f pc = Point(150, 100); /// 标准化特征中心点
+        float radius = 60;   /// 标准化特征半径
+        for (unsigned int i = 0; i < keypoints.size(); i++) {
+            Point2f p = keypoints[i].pt; 
+            float ratio = dist[i] / mdist;
+            
+            /// 标准化
+            p.x = (p.x - pmean.x) / ratio + pmean.x;
+            p.y = (p.y - pmean.y) / ratio + pmean.y;
+            
+            /// 以 pc 为中心进行映射
+            p.x = p.x + (pc.x - pmean.x);
+            p.y = p.y + (pc.y - pmean.y);
+            
+            
+            circle(iIPM, p, 2, Scalar::all(255));
+        }
+        
+        circle(iIPM, pc, radius, CV_RGB(255, 0, 0), 1);
+        circle(iIPM, pc, 2, CV_RGB(255, 0, 0), 1);
     }
-    else {
-        cutRegion(&iIPM, roi, "/media/TOURO/neg/0");
-    }
+    
+    
     
     /// 在原图左上角绘制探测过程
     Mat imgOverlap = Mat(imgOrigin, Rect(0, 0, iIPM.cols, iIPM.rows));
@@ -1299,14 +1305,7 @@ int main()
         
         
         capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
+
 
         if (frame.empty()) {
             break;
@@ -1330,7 +1329,7 @@ int main()
         
         //detectRoadmark2(&imgClone);
         
-        detectRoadmarkCNN(&imgClone);
+        detectRoadmarkFM(&imgClone);
         
         //cutRegion(&imgClone, roiRoadmark, "/media/TOURO/cutroi");  /// 暂时使用 roadmark 的 ROI 区域
         
