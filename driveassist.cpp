@@ -49,7 +49,7 @@ int KFStateR = 445;
 //#define SRC "file:///media/TOURO/PAPAGO/95450225/17500006.MOV" /** 车辆 */
 
 
-#define CAR_CASCADE "/media/TOURO/opencv/车辆样本/haarcascade764hog/cascade.xml"
+#define CAR_CASCADE "/media/TOURO/opencv/车辆样本/cascade-853-7708-haar/cascade.xml"
 #define ROADMARK_CASCADE "/media/TOURO/opencv/roadmark/data-all-haar/cascade.xml"
 #define ROADMARK2_CASCADE "/media/TOURO/opencv/roadmark2/data-all-haar/cascade.xml"
 
@@ -1224,15 +1224,7 @@ int main()
         
         
         capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
+
 
         if (frame.empty()) {
             break;
@@ -1251,7 +1243,7 @@ int main()
         
         detectLane(imgClone);
             
-        //detectCar(&imgClone, roiCarDetect);
+        detectCar(&imgClone, roiCarDetect);
         //detectRoadmark(&imgClone, roiRoadmark);
         
         //detectRoadmark2(&imgClone);
