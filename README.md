@@ -11,7 +11,7 @@ Code is under heavy development.
 * Stay in center of lane automatically
 * Give warning when driver fail to keep in center of lane
 * Vehicle Detection
-* Pedstrain Detectino (low priority)
+* Pedstrain Detection (low priority)
 
 ## Demo Videos
 
