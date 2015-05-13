@@ -29,4 +29,6 @@ Trained with 764 positive samples, HOG feature.
 
 Trained with 764 positive samples, LBP feature.
 
+### haarcascade-853-7708-haar
 
+Trained with 853 positive samples and 7708 negative samples，haar-like feature. Only front-view and rear-view are included in positive samples, side-view samples are not included.
