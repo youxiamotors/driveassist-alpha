@@ -507,8 +507,7 @@ void detectLane(Mat imgInput) {
     
     warpPerspective(imgROI, imgIPM32, tsfIPM, imgROI.size());
     
-    cutRegion(&imgIPM32, Rect(0, 0, imgIPM32.cols, imgIPM32.rows), "/media/TOURO/raw");
-    return;
+    //cutRegion(&imgIPM32, Rect(0, 0, imgIPM32.cols, imgIPM32.rows), "/media/TOURO/raw");
     
     
     // 在 ROI 图上绘制 srcX1 和 src 坐标
@@ -1139,7 +1138,7 @@ int main()
     int frameIdx = 0;
     
     
-    /*
+    
     namedWindow(winOrigin, CV_WINDOW_KEEPRATIO | CV_WINDOW_NORMAL);
     namedWindow(winROI, CV_WINDOW_KEEPRATIO | CV_WINDOW_NORMAL);
     namedWindow(winGray, CV_WINDOW_KEEPRATIO | CV_WINDOW_NORMAL);
@@ -1148,7 +1147,7 @@ int main()
     namedWindow(winThreshold, CV_WINDOW_KEEPRATIO | CV_WINDOW_NORMAL);
     namedWindow(winIPM32, CV_WINDOW_KEEPRATIO | CV_WINDOW_NORMAL);
     namedWindow(winRoadmark, CV_WINDOW_KEEPRATIO | CV_WINDOW_NORMAL);
-    */
+    
     namedWindow(winConfig, CV_WINDOW_KEEPRATIO | CV_WINDOW_NORMAL);
     namedWindow(winConfig2, CV_WINDOW_KEEPRATIO | CV_WINDOW_NORMAL);
     
@@ -1224,15 +1223,7 @@ int main()
         
         
         capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
-        capVideo >> frame;
+
 
         if (frame.empty()) {
             break;
